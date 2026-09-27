@@ -21,7 +21,7 @@ from playwright.sync_api import sync_playwright
 # ============ CONFIG ============
 
 URL = "https://shows.cityline.com/tc/2027/babymonsterworldtour.html"
-TOP_CHARACTERS_TO_WATCH = 3000
+TOP_CHARACTERS_TO_WATCH = 200
 STATE_FILE = "last_seen.json"
 
 # these come from GitHub Actions secrets (see README.md)
