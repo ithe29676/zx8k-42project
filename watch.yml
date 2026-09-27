@@ -1,0 +1,40 @@
+name: Cityline ticket watcher
+
+on:
+  schedule:
+    # every 5 minutes (public repos get unlimited free Actions minutes)
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {}  # lets you also trigger it manually from the Actions tab
+
+# allow the workflow to commit the updated state file back to the repo
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          playwright install --with-deps chromium
+
+      - name: Run check
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python check_once.py
+
+      - name: Save updated state back to repo
+        run: |
+          git config user.name "cityline-watcher-bot"
+          git config user.email "actions@github.com"
+          git add last_seen.json
+          git diff --quiet --cached || git commit -m "update snapshot [skip ci]"
+          git push
