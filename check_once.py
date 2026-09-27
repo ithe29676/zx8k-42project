@@ -1,19 +1,6 @@
-#!/usr/bin/env python3
-"""
-Cityline ticket-release watcher - single-run version for GitHub Actions.
-
-Runs ONE check, compares to the last saved snapshot (last_seen.json in
-this repo), sends a Telegram message ONLY if the page changed, then exits.
-GitHub Actions calls this on a schedule (see .github/workflows/watch.yml)
-so it behaves like a continuous watcher without needing your own PC on.
-
-Telegram bot credentials are read from environment variables (set as
-GitHub repo secrets), NOT hardcoded here.
-"""
 
 import os
 import json
-import hashlib
 import requests
 
 from playwright.sync_api import sync_playwright
@@ -21,10 +8,9 @@ from playwright.sync_api import sync_playwright
 # ============ CONFIG ============
 
 URL = "https://shows.cityline.com/tc/2027/babymonsterworldtour.html"
-TOP_CHARACTERS_TO_WATCH = 200
+STATUS_KEYWORD = "售罄"  # "sold out" / not yet on sale
 STATE_FILE = "last_seen.json"
 
-# these come from GitHub Actions secrets (see README.md)
 TELEGRAM_BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 TELEGRAM_CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 
@@ -49,14 +35,13 @@ def load_last_state():
     return None
 
 
-def save_state(snippet: str, digest: str):
+def save_state(status: str):
     with open(STATE_FILE, "w", encoding="utf-8") as f:
-        json.dump({"digest": digest, "snippet": snippet}, f, ensure_ascii=False, indent=2)
+        json.dump({"status": status}, f, ensure_ascii=False, indent=2)
 
 
 def send_telegram_message(text: str):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    # Telegram messages have a ~4096 character limit
     resp = requests.post(url, json={
         "chat_id": TELEGRAM_CHAT_ID,
         "text": text[:4000],
@@ -66,25 +51,29 @@ def send_telegram_message(text: str):
 
 def main():
     last = load_last_state()
+
     full_text = fetch_rendered_text(URL)
-    snippet = full_text[:TOP_CHARACTERS_TO_WATCH].strip()
-    digest = hashlib.sha256(snippet.encode("utf-8")).hexdigest()
+    is_sold_out = STATUS_KEYWORD in full_text
+    current_status = "SOLD_OUT" if is_sold_out else "NOT_SOLD_OUT"
+
+    print(f"Current status: {current_status}")
 
     if last is None:
-        print("First run - saving baseline snapshot. No message sent.")
-        save_state(snippet, digest)
+        print("First run - saving baseline status. No message sent.")
+        save_state(current_status)
         return
 
-    if digest != last["digest"]:
-        print("CHANGE DETECTED - sending Telegram message.")
+    if current_status != last["status"]:
+        print(f"STATUS CHANGED: {last['status']} -> {current_status} - sending Telegram message.")
         message = (
-            f"🎟️ Cityline page changed! Check tickets now:\n{URL}\n\n"
-            f"New content:\n{snippet[:1500]}"
+            f"🎟️ Cityline status changed!\n"
+            f"Was: {last['status']} -> Now: {current_status}\n\n"
+            f"Check tickets now:\n{URL}"
         )
         send_telegram_message(message)
-        save_state(snippet, digest)
+        save_state(current_status)
     else:
-        print("No change.")
+        print("No status change.")
 
 
 if __name__ == "__main__":
