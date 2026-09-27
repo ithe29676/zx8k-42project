@@ -3,7 +3,8 @@ name: Cityline ticket watcher
 on:
   schedule:
     # every 5 minutes (public repos get unlimited free Actions minutes)
-    - cron: "*/5 * * * *"
+    - cron: "*/5 * * * *"   # every 5 minutes (covers :00 automatically)
+    - cron: "1 * * * *"     # extra check at :01 past every hour
   workflow_dispatch: {}  # lets you also trigger it manually from the Actions tab
 
 # allow the workflow to commit the updated state file back to the repo
