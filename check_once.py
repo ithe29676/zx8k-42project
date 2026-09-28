@@ -53,6 +53,7 @@ def main():
     last = load_last_state()
 
     full_text = fetch_rendered_text(URL)
+    print(full_text[:1500])
     is_sold_out = STATUS_KEYWORD in full_text
     current_status = "SOLD_OUT" if is_sold_out else "NOT_SOLD_OUT"
 
